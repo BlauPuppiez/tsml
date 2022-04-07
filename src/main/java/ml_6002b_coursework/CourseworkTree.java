@@ -164,22 +164,6 @@ public class CourseworkTree extends AbstractClassifier {
         void buildTree(Instances data, int depth) throws Exception {
             this.depth = depth;
 
-            Instances nomalisedData = WekaTools.convertNumericToNominal(data);
-
-            // Need to change numeric attributes into two splits. i.e. into a nominal attribute with two values.
-            // For this we'll use the mean as the threshold value. (TEMPORARY)
-            for (int i = 0; i < data.numAttributes() - 1; i++) {
-                if (data.attribute(i).isNumeric()) {
-                    double total = 0;
-                    for (Instance instance : data) {
-                        total += instance.value(i);
-                    }
-                    double mean = total / data.numInstances();
-
-
-                }
-            }
-
             // Loop through each attribute, finding the best one.
             for (int i = 0; i < data.numAttributes() - 1; i++) {
                 double gain = attSplitMeasure.computeAttributeQuality(data, data.attribute(i));
@@ -275,7 +259,7 @@ public class CourseworkTree extends AbstractClassifier {
         @Override
         public String toString() {
             String str;
-            if (bestSplit == null){
+            if (bestSplit == null) {
                 str = "Leaf," + Arrays.toString(leafDistribution) + "," + depth;
             } else {
                 str = bestSplit.name() + "," + bestGain + "," + depth;

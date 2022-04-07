@@ -38,7 +38,7 @@ public abstract class AttributeSplitMeasure {
     }
 
     /**
-     * Splits a dataset according to the values of a numeric attribute and a threshold.
+     * Splits a dataset according to the values of a numeric attribute and a threshold value.
      *
      * @param data the data which is to be split
      * @param att the attribute to be used for splitting

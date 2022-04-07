@@ -17,28 +17,28 @@ import java.util.Random;
  */
 public class WekaTools {
     /**
-     * Numeric to normal attributes.
+     * Numeric to normal attributes, which two values (i.e. binary nominal).
      * @return Normalised data.
      */
-    public static Instances convertNumericToNominal(Instances instances) {
+    public static Instances convertNumericToNominalBinary(Instances instances) {
+        Instances normalisedData = new Instances(instances);
+        for (int i = 0; i < normalisedData.numAttributes() - 1; i++) {
+            if (normalisedData.attribute(i).isNumeric()) {
+                double total = 0;
+                for (Instance instance : normalisedData) {
+                    total += instance.value(i);
+                }
+                double mean = total / normalisedData.numInstances();
+                for (Instance instance : normalisedData) {
+                    instance.setValue(i, instance.value(i) <= mean ? 0 : 1);
+                }
+            }
+        }
         try {
             NumericToNominal convert = new NumericToNominal();
+            convert.setInputFormat(normalisedData); // Original Data to convert
 
-            System.out.println(Arrays.toString(convert.getOptions()));
-            convert.setInputFormat(instances); // Original Data to convert
-
-            Instances newData = Filter.useFilter(instances, convert);
-
-            System.out.println("Before");
-            for (int i = 0; i < instances.numAttributes(); i++) {
-                System.out.println(i + " Nominal? " + instances.attribute(i).isNominal());
-            }
-
-            System.out.println("After");
-            for (int i = 0; i < newData.numAttributes(); i++) {
-                System.out.println(i + " Nominal? " + newData.attribute(i).isNominal());
-                System.out.println(newData.attribute(i).numValues());
-            }
+            Instances newData = Filter.useFilter(normalisedData, convert);
             return newData;
         } catch (Exception e) {
             e.printStackTrace();
