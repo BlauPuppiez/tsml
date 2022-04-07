@@ -26,8 +26,32 @@ public abstract class AttributeSplitMeasure {
             splitData[i] = new Instances(data, data.numInstances());
         }
 
-        for (Instance inst: data) {
-            splitData[(int) inst.value(att)].add(inst);
+        for (Instance inst : data) {
+            splitData[(int)inst.value(att)].add(inst);
+        }
+
+        for (Instances split : splitData) {
+            split.compactify();
+        }
+
+        return splitData;
+    }
+
+    /**
+     * Splits a dataset according to the values of a numeric attribute and a threshold.
+     *
+     * @param data the data which is to be split
+     * @param att the attribute to be used for splitting
+     * @param value split on this value, equal is split into the same as those below the value
+     * @return the sets of instances produced by the split
+     */
+    public Instances[] splitDataOnNumeric(Instances data, Attribute att, double value) {
+        Instances[] splitData = new Instances[2];
+        splitData[0] = new Instances(data, data.numInstances());
+        splitData[1] = new Instances(data, data.numInstances());
+
+        for (Instance inst : data) {
+            splitData[(int)inst.value(att) <= value ? 0 : 1].add(inst);
         }
 
         for (Instances split : splitData) {

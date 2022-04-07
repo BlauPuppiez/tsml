@@ -3,7 +3,7 @@ package ml_6002b_coursework;
 import java.util.Arrays;
 
 /**
- * Empty class for Part 2.1 of the coursework.
+ * AttributeMeasures class for Part 2.1 of the coursework.
  * Each contingency table is 'y coordinate' first then 'x coordinate'
  * e.g.
  * -----
@@ -14,14 +14,17 @@ import java.util.Arrays;
  */
 public class AttributeMeasures {
 
-    public static double log2(double num) {
+    /**
+     * Log function for log base 2 calculations.
+     * @param num number to calculate 2^x.
+     * @return value where 2 ^ x (return value) = num.
+     */
+    private static double log2(double num) {
         return Math.log(num) / Math.log(2);
     }
 
     /**
-     * Information gain for contingency table.
-     * Any values with 0 log 0 treated as zero. i.e. they are ignored.
-     * As any additions of 0 do not change the value.
+     * Information gain measure for contingency tables.
      */
     public static double measureInformationGain(int[][] contingencyTable) {
         int attValueCount = contingencyTable.length;
@@ -29,17 +32,15 @@ public class AttributeMeasures {
 
         int count = 0;
         int[] attTotals = new int[attValueCount];
-        int[] classTotals = new int[classCount];
         for (int attIt = 0; attIt < attValueCount; attIt++) {
             for (int classIt = 0; classIt < classCount; classIt++) {
                 count += contingencyTable[attIt][classIt];
                 attTotals[attIt] += contingencyTable[attIt][classIt];
-                classTotals[classIt] += contingencyTable[attIt][classIt];
             }
         }
 
         double hx = 0.0; // H(X)
-        double sumY = 0.0;
+        double sumY = 0.0; // Sum of all H(Y)
         for (int attIt = 0; attIt < attValueCount; attIt++) {
             double globProb = (double)attTotals[attIt]/count; // Global probability
             hx -= globProb * log2(globProb);
@@ -47,7 +48,7 @@ public class AttributeMeasures {
             double currY = 0.0;
             for (int classIt = 0; classIt < classCount; classIt++) {
                 double value = (double)contingencyTable[attIt][classIt]/attTotals[attIt];
-                if (value != 0) {
+                if (value != 0) { // If the value is 0, log(0) (any base) is undefined. Assume it's 0.
                     currY += value * log2(value);
                 }
             }
@@ -58,11 +59,12 @@ public class AttributeMeasures {
     }
 
     /**
-     * Information gain ratio for the contingency table.
+     * Information gain ratio measure for contingency tables.
      */
     public static double measureInformationGainRatio(int[][] contingencyTable) {
         int attValueCount = contingencyTable.length;
         int classCount = contingencyTable[0].length;
+
         int count = 0;
         int[] attTotals = new int[attValueCount];
         for (int attIt = 0; attIt < attValueCount; attIt++) {
@@ -71,6 +73,7 @@ public class AttributeMeasures {
                 attTotals[attIt] += contingencyTable[attIt][classIt];
             }
         }
+
         double informationGain = measureInformationGain(contingencyTable);
 
         double splitInformation = 0.0;
@@ -87,6 +90,7 @@ public class AttributeMeasures {
     public static double measureGini(int[][] contingencyTable) {
         int attValueCount = contingencyTable.length;
         int classCount = contingencyTable[0].length;
+
         int count = 0;
         int[] attTotals = new int[attValueCount];
         int[] classTotals = new int[classCount];
@@ -97,33 +101,35 @@ public class AttributeMeasures {
                 classTotals[classIt] += contingencyTable[attIt][classIt];
             }
         }
+
         double ix = 1; // I(X)
         for (int classIt = 0; classIt < classCount; classIt++) {
             ix -= (double)classTotals[classIt]/count * classTotals[classIt]/count;
         }
-        //System.out.println("I(X): " + ix); // Debug: Check I(X)
+//        System.out.println("I(X): " + ix); // Debug: Check I(X)
 
         double attSumm = 0.0; // Sum of all I(Y)
         for (int attIt = 0; attIt < attValueCount; attIt++) {
             double iy = 1.0; // I(Y)
             for (int classIt = 0; classIt < classCount; classIt++) {
-                double value = (double)contingencyTable[attIt][classIt]/attTotals[attIt];
-                iy -= value * value;
+                if (contingencyTable[attIt][classIt] != 0 && attTotals[attIt] != 0) { // Cannot divide by 0
+                    double value = (double) contingencyTable[attIt][classIt] / attTotals[attIt];
+                    iy -= value * value;
+                }
             }
-            //System.out.println("I(Y): " + iy); // Debug: Check I(Y)
+//            System.out.println("I(Y): " + iy); // Debug: Check I(Y)
 
             double globProb = (double)attTotals[attIt]/count; // Global probability
-            //System.out.println("SCALE: " + globProb); // Debug: Check scaling value
+//            System.out.println("SCALE: " + globProb); // Debug: Check scaling value
             attSumm += globProb * iy; // Scale with instance count for each attribute
-            //System.out.println("SCALED I(Y): " + globProb * iy); // Debug: Check scaled I(Y) value
+//            System.out.println("SCALED I(Y): " + globProb * iy); // Debug: Check scaled I(Y) value
         }
-        //System.out.println("SUM (IY): " + attSumm); // Debug: Check sum of I(Y)
-
+//        System.out.println("SUM (IY): " + attSumm); // Debug: Check sum of I(Y)
         return ix - attSumm;
     }
 
     /**
-     * Chi-squared statistic for the contingency table.
+     * Chi-squared statistic for measurement on contingency tables.
      */
     public static double measureChiSquared(int[][] contingencyTable) {
         int attValueCount = contingencyTable.length;
@@ -165,10 +171,10 @@ public class AttributeMeasures {
                    False   1      5
         */
         int[][] peatyContingencyTable = new int[][]{{4, 0}, {1, 5}};
-        System.out.println(measureInformationGain(peatyContingencyTable));
-        System.out.println(measureInformationGainRatio(peatyContingencyTable));
-        System.out.println(measureGini(peatyContingencyTable));
-        System.out.println(measureChiSquared(peatyContingencyTable));
+        System.out.println("measure information gain for Peaty = " + measureInformationGain(peatyContingencyTable));
+        System.out.println("measure information gain ratio for Peaty = " + measureInformationGainRatio(peatyContingencyTable));
+        System.out.println("measure gini for Peaty = " + measureGini(peatyContingencyTable));
+        System.out.println("measure chi squared for Peaty = " + measureChiSquared(peatyContingencyTable));
     }
 
 }

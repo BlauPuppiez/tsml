@@ -2,6 +2,8 @@ package ml_6002b_coursework;
 
 import weka.classifiers.AbstractClassifier;
 import weka.core.*;
+import weka.filters.Filter;
+import weka.filters.unsupervised.attribute.NumericToNominal;
 
 import java.util.Arrays;
 
@@ -13,11 +15,37 @@ public class CourseworkTree extends AbstractClassifier {
     /** Measure to use when selecting an attribute to split the data with. */
     private AttributeSplitMeasure attSplitMeasure = new IGAttributeSplitMeasure();
 
-    /** Maxiumum depth for the tree. */
+    /** Maximum depth for the tree. */
     private int maxDepth = Integer.MAX_VALUE;
 
     /** The root node of the tree. */
     private TreeNode root;
+
+    /**
+     * Sets the option for attSplitMeasure in the classifier.
+     */
+    public void setOptions(String attSplitMeasure) throws Exception {
+        if (attSplitMeasure.equals("IG")) setAttSplitMeasure(new IGAttributeSplitMeasure());
+        else if (attSplitMeasure.equals(""));
+        switch (attSplitMeasure) {
+            case "IG":
+                setAttSplitMeasure(new IGAttributeSplitMeasure());
+                break;
+            case "IGR":
+                IGAttributeSplitMeasure igAttributeSplitMeasure = new IGAttributeSplitMeasure();
+                igAttributeSplitMeasure.setUseGain(false);
+                setAttSplitMeasure(igAttributeSplitMeasure);
+                break;
+            case "chi":
+                setAttSplitMeasure(new ChiSquaredAttributeSplitMeasure());
+                break;
+            case "gini":
+                setAttSplitMeasure(new GiniAttributeSplitMeasure());
+                break;
+            default:
+                throw new Exception();
+        }
+    }
 
     /**
      * Sets the attribute split measure for the classifier.
@@ -135,6 +163,22 @@ public class CourseworkTree extends AbstractClassifier {
          */
         void buildTree(Instances data, int depth) throws Exception {
             this.depth = depth;
+
+            Instances nomalisedData = WekaTools.convertNumericToNominal(data);
+
+            // Need to change numeric attributes into two splits. i.e. into a nominal attribute with two values.
+            // For this we'll use the mean as the threshold value. (TEMPORARY)
+            for (int i = 0; i < data.numAttributes() - 1; i++) {
+                if (data.attribute(i).isNumeric()) {
+                    double total = 0;
+                    for (Instance instance : data) {
+                        total += instance.value(i);
+                    }
+                    double mean = total / data.numInstances();
+
+
+                }
+            }
 
             // Loop through each attribute, finding the best one.
             for (int i = 0; i < data.numAttributes() - 1; i++) {
