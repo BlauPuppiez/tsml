@@ -39,19 +39,50 @@ public abstract class AttributeSplitMeasure {
 
     /**
      * Splits a dataset according to the values of a numeric attribute and a threshold value.
-     *
+     * Instances with a value below the threshold reside in index 0, and those equal to and above reside in index 1.
+     * Calculates a suitable threshold value, using the average.
      * @param data the data which is to be split
      * @param att the attribute to be used for splitting
-     * @param value split on this value, equal is split into the same as those below the value
      * @return the sets of instances produced by the split
      */
-    public Instances[] splitDataOnNumeric(Instances data, Attribute att, double value) {
+    public Instances[] splitDataOnNumeric(Instances data, Attribute att) {
+        // First calculate the threshold value, using the mean of the selected attribute value for all instances
+        double threshold = 0.0;
+        for (Instance inst : data) {
+            threshold += inst.value(att);
+        }
+        threshold /= data.size();
+
         Instances[] splitData = new Instances[2];
         splitData[0] = new Instances(data, data.numInstances());
         splitData[1] = new Instances(data, data.numInstances());
 
         for (Instance inst : data) {
-            splitData[(int)inst.value(att) <= value ? 0 : 1].add(inst);
+            splitData[inst.value(att) < threshold ? 0 : 1].add(inst);
+        }
+
+        for (Instances split : splitData) {
+            split.compactify();
+        }
+
+        return splitData;
+    }
+
+    /**
+     * Splits a dataset according to the values of a numeric attribute and a threshold value.
+     * Instances with a value below the threshold reside in index 0, and those equal to and above reside in index 1.
+     * @param data the data which is to be split
+     * @param att the (numeric) attribute to be used for splitting
+     * @param threshold value to split on
+     * @return the sets of instances produced by the split
+     */
+    public Instances[] splitDataOnNumeric(Instances data, Attribute att, double threshold) {
+        Instances[] splitData = new Instances[2];
+        splitData[0] = new Instances(data, data.numInstances());
+        splitData[1] = new Instances(data, data.numInstances());
+
+        for (Instance inst : data) {
+            splitData[inst.value(att) < threshold ? 0 : 1].add(inst);
         }
 
         for (Instances split : splitData) {

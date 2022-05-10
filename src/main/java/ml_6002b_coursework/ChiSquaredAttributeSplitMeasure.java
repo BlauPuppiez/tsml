@@ -17,18 +17,37 @@ public class ChiSquaredAttributeSplitMeasure extends AttributeSplitMeasure {
      */
     @Override
     public double computeAttributeQuality(Instances data, Attribute att) throws Exception {
-        int classCount = data.numClasses();
-        int attValues = att.numValues();
+        if (att.isNumeric()) {
+            Instances[] numericSplit = splitDataOnNumeric(data, att);
 
-        int[][] contingencyTable = new int[attValues][classCount];
+            int classCount = data.numClasses();
 
-        for (Instance instance : data) {
-            int attValue = (int)instance.value(att);
-            int classValue = (int)instance.classValue();
-            contingencyTable[attValue][classValue]++;
+            int[][] contingencyTable = new int[2][classCount];
+            // Split on numeric attribute produces a binary split (from threshold)
+
+            for (Instance instance : numericSplit[0]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[0][classValue]++;
+            }
+            for (Instance instance : numericSplit[1]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[1][classValue]++;
+            }
+            return AttributeMeasures.measureChiSquared(contingencyTable);
+        } else {
+            int classCount = data.numClasses();
+            int attValues = att.numValues();
+
+            int[][] contingencyTable = new int[attValues][classCount];
+
+            for (Instance instance : data) {
+                int attValue = (int) instance.value(att);
+                int classValue = (int) instance.classValue();
+                contingencyTable[attValue][classValue]++;
+            }
+
+            return AttributeMeasures.measureChiSquared(contingencyTable);
         }
-
-        return AttributeMeasures.measureChiSquared(contingencyTable);
     }
 
     /**
@@ -37,13 +56,13 @@ public class ChiSquaredAttributeSplitMeasure extends AttributeSplitMeasure {
      * @param args the options for the split measure main
      */
     public static void main(String[] args) {
-        ChiSquaredAttributeSplitMeasure igAttributeSplitMeasure = new ChiSquaredAttributeSplitMeasure();
-
         try {
-            // Load in the data
-            FileReader reader = new FileReader("C:\\Users\\siuhu\\OneDrive\\Uni\\Year 3\\Machine Learning\\Coursework\\whisky.arff");
-            Instances instances = new Instances(reader);
-            instances.setClassIndex(instances.numAttributes() - 1);
+            // Load in the whisky data (full path for local path, stored in test_data folder)
+//            FileReader reader = new FileReader("C:\\Users\\siuhu\\OneDrive\\Uni\\Year 3\\Machine Learning\\Coursework\\whisky.arff");
+//            Instances instances = new Instances(reader);
+//            instances.setClassIndex(instances.numAttributes() - 1);
+            // Or using local path, comment as needed
+            Instances instances = WekaTools.loadLocalClassificationData("whisky.arff");
 
             Attribute peatyAtt = instances.attribute(0);
             Attribute woodyAtt = instances.attribute(1);
@@ -52,6 +71,8 @@ public class ChiSquaredAttributeSplitMeasure extends AttributeSplitMeasure {
 //            System.out.println(peatyAtt);
 //            System.out.println(woodyAtt);
 //            System.out.println(sweetAtt);
+
+            ChiSquaredAttributeSplitMeasure igAttributeSplitMeasure = new ChiSquaredAttributeSplitMeasure();
 
             double peatyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, peatyAtt);
             double woodyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, woodyAtt);

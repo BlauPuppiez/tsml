@@ -18,18 +18,37 @@ public class GiniAttributeSplitMeasure extends AttributeSplitMeasure {
      */
     @Override
     public double computeAttributeQuality(Instances data, Attribute att) throws Exception {
-        int classCount = data.numClasses();
-        int attValues = att.numValues();
+        if (att.isNumeric()) {
+            Instances[] numericSplit = splitDataOnNumeric(data, att);
 
-        int[][] contingencyTable = new int[attValues][classCount];
+            int classCount = data.numClasses();
 
-        for (Instance instance : data) {
-            int attValue = (int)instance.value(att);
-            int classValue = (int)instance.classValue();
-            contingencyTable[attValue][classValue]++;
+            int[][] contingencyTable = new int[2][classCount];
+            // Split on numeric attribute produces a binary split (from threshold)
+
+            for (Instance instance : numericSplit[0]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[0][classValue]++;
+            }
+            for (Instance instance : numericSplit[1]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[1][classValue]++;
+            }
+            return AttributeMeasures.measureGini(contingencyTable);
+        } else {
+            int classCount = data.numClasses();
+            int attValues = att.numValues();
+
+            int[][] contingencyTable = new int[attValues][classCount];
+
+            for (Instance instance : data) {
+                int attValue = (int) instance.value(att);
+                int classValue = (int) instance.classValue();
+                contingencyTable[attValue][classValue]++;
+            }
+
+            return AttributeMeasures.measureGini(contingencyTable);
         }
-
-        return AttributeMeasures.measureGini(contingencyTable);
     }
 
     /**
@@ -38,21 +57,23 @@ public class GiniAttributeSplitMeasure extends AttributeSplitMeasure {
      * @param args the options for the split measure main
      */
     public static void main(String[] args) {
-        GiniAttributeSplitMeasure igAttributeSplitMeasure = new GiniAttributeSplitMeasure();
-
         try {
-            // Load in the data
-            FileReader reader = new FileReader("C:\\Users\\siuhu\\OneDrive\\Uni\\Year 3\\Machine Learning\\Coursework\\whisky.arff");
-            Instances instances = new Instances(reader);
-            instances.setClassIndex(instances.numAttributes() - 1);
+            // Load in the whisky data (full path for local path, stored in test_data folder)
+//            FileReader reader = new FileReader("C:\\Users\\siuhu\\OneDrive\\Uni\\Year 3\\Machine Learning\\Coursework\\whisky.arff");
+//            Instances instances = new Instances(reader);
+//            instances.setClassIndex(instances.numAttributes() - 1);
+            // Or using local path, comment as needed
+            Instances instances = WekaTools.loadLocalClassificationData("whisky.arff");
 
             Attribute peatyAtt = instances.attribute(0);
             Attribute woodyAtt = instances.attribute(1);
             Attribute sweetAtt = instances.attribute(2);
-            // Double check each, should print in the same order as here
+            // Debug line for double-checking, should print in the same order as here
 //            System.out.println(peatyAtt);
 //            System.out.println(woodyAtt);
 //            System.out.println(sweetAtt);
+
+            GiniAttributeSplitMeasure igAttributeSplitMeasure = new GiniAttributeSplitMeasure();
 
             double peatyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, peatyAtt);
             double woodyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, woodyAtt);

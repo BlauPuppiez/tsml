@@ -5,8 +5,7 @@ import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.filters.Filter;
-import weka.filters.supervised.attribute.AttributeSelection;
-import weka.filters.unsupervised.attribute.Copy;
+import weka.filters.unsupervised.attribute.Remove;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,6 +16,7 @@ public class TreeEnsemble extends AbstractClassifier {
     /** Selected attributes for each classifier in the ensemble */
     private Attribute[][] selectedAttributes;
     private ArrayList<Integer>[] selectedAttributeIndexes;
+    private ArrayList<Integer>[] removeAttributeIndexes;
 
     /** Number of trees in the ensemble */
     private int numTrees = 50;
@@ -24,72 +24,82 @@ public class TreeEnsemble extends AbstractClassifier {
     /** Proportion of attributes to use in each classifier, does so without replacement */
     private double attProp = 0.5;
 
-    public void setNumTrees(int numTrees) {
-        if (numTrees < 1) {
+    /** Use average of distributions when classifying a new instance, default uses majority voting (false) */
+    private boolean averageDistributions = false;
 
-        } else {
+    /**
+     * Set the number of trees, must be a minimum of at least 1.
+     * @param numTrees number of trees
+     */
+    public void setNumTrees(int numTrees) {
+        if (numTrees >= 1) {
             this.numTrees = numTrees;
         }
     }
 
-    public void setAttProp(double numAttSelec) {
-        if (attProp <= 0) {
-
-        } else if (attProp > 1) {
-
-        } else {
-            attProp = numAttSelec;
+    /**
+     * Set the proportion of attributes to keep when building the ensemble.
+     * Proportion must be in range 0 < prop <= 1.
+     * @param attProp proportion of attributes to keep
+     */
+    public void setAttProp(double attProp) {
+        if (!(attProp <= 0 || attProp > 1)) {
+            this.attProp = attProp;
         }
+    }
+
+    public void setAverageDistributions(boolean averageDistributions) {
+        this.averageDistributions = averageDistributions;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public void buildClassifier(Instances data) throws Exception {
+        // Create each classifier in the ensemble
         ensemble = new CourseworkTree[numTrees];
         for (int i = 0; i < numTrees; i++) {
             ensemble[i] = new CourseworkTree();
         }
 
-        int attSelecCount = (int)(attProp * (data.numAttributes()-1));// Exclude the class attribute
-        selectedAttributes = new Attribute[numTrees][attSelecCount];
+        // Attribute selection (exclude the class attribute)
+        int attSelCount = (int)(attProp * (data.numAttributes()-1)); // Exclude the class attribute
+        selectedAttributes = new Attribute[numTrees][attSelCount];
         selectedAttributeIndexes = (ArrayList<Integer>[]) new ArrayList[numTrees];
+        removeAttributeIndexes = (ArrayList<Integer>[]) new ArrayList[numTrees];
         Random random = new Random();
         int randInt = 0;
         // Assign the attributes for each classifier in the ensemble
         for (int treeIt = 0; treeIt < numTrees; treeIt++) {
-            selectedAttributes[treeIt] = new Attribute[attSelecCount];
+            selectedAttributes[treeIt] = new Attribute[attSelCount];
             selectedAttributeIndexes[treeIt] = new ArrayList<>();
-            for (int attIt = 0; attIt < attSelecCount; attIt++) {
+            for (int attIt = 0; attIt < attSelCount; attIt++) {
                 // Must be an attribute not already selected (no replacement attribute selection)
                 while (selectedAttributeIndexes[treeIt].contains(randInt)) {
-                    randInt = random.nextInt(attSelecCount);
+                    randInt = random.nextInt(data.numAttributes()-1);
                 }
                 selectedAttributes[treeIt][attIt] = data.attribute(randInt);
                 selectedAttributeIndexes[treeIt].add(randInt);
             }
-            // Now add the class attribute?
-            // And now build the tree with the selected attributes
-            Copy convert = new Copy();
-            AttributeSelection attributeSelector = new AttributeSelection();
-            // Set options to copy only certain attributes
-            String[] options = new String[2];
-            options[0] = "-P";
-            StringBuilder indexString = new StringBuilder();
-            for (Integer attIndex : selectedAttributeIndexes[treeIt]) {
-                int index = attIndex + 1;
-                indexString.append(index).append(",");
+            selectedAttributeIndexes[treeIt].add(data.classIndex()); // Cannot remove the class attribute
+
+            removeAttributeIndexes[treeIt] = new ArrayList<>();
+            // Generate new data with selected attributes
+            Remove removeFilter = new Remove();
+            String removeString = "";
+            for (int attIt = 0; attIt < data.numAttributes(); attIt++) {
+                if (!selectedAttributeIndexes[treeIt].contains(attIt)) {
+                    removeString += (attIt+1) + ","; // Remove filter uses indexing from 1
+                    removeAttributeIndexes[treeIt].add(attIt);
+                }
             }
-            options[1] = indexString.substring(0, indexString.length()-1); // Remove extra ',' character
-            System.out.println("OPTOINS: " + options[1]);
-            convert.setOptions(options);
-            attributeSelector.setOptions(options);
-            convert.setInputFormat(data); // Original Data to convert
-            attributeSelector.setInputFormat(data);
+            removeString = removeString.substring(0, removeString.length()-1); // Remove extra comma "," character
+            String[] options = new String[]{"-R", removeString};
+            removeFilter.setOptions(options);
+            removeFilter.setInputFormat(data);
+            Instances subData = Filter.useFilter(data, removeFilter);
 
-            Instances newData = Filter.useFilter(data, attributeSelector);
-            System.out.println(newData.numAttributes());
-
-            //ensemble[treeIt].buildClassifier(data);
+            // Now build the classifier with the given data (subset of attributes)
+            ensemble[treeIt].buildClassifier(subData);
         }
     }
 
@@ -106,8 +116,52 @@ public class TreeEnsemble extends AbstractClassifier {
         return index;
     }
 
+    /**
+     * Gets the distribution for the given instance. Can use average distributions which averages all the base
+     * classifiers distributions for the given instance. Otherwise, uses majority voting.
+     * @param instance the instance to be classified
+     * @return double array of probability distributions
+     */
     public double[] distributionForInstance(Instance instance) {
-        return new double[]{0.0, 0.0};
+        int classCount = instance.numClasses();
+
+        if (averageDistributions) {
+            double[] averageDistribution = new double[classCount];
+            for (int treeIt = 0; treeIt < numTrees; treeIt++) {
+//                int[] votes = new int[classCount];
+//                for (CourseworkTree tree : ensemble) {
+//                    votes[(int) tree.classifyInstance(instance)]++;
+//                }
+//                for (int classIt = 0; classIt < classCount; classIt++) {
+//                    averageDistribution[classIt] += (double) votes[classIt] / numTrees;
+//                }
+                double[] treeDistribution = ensemble[treeIt].distributionForInstance(instance);
+                for (int classIt = 0; classIt < classCount; classIt++) {
+                    averageDistribution[classIt] += treeDistribution[classIt];
+                }
+            }
+            for (int classIt = 0; classIt < classCount; classIt++) {
+                averageDistribution[classIt] /= numTrees;
+            }
+            return averageDistribution;
+        } else {
+            int[] votes = new int[classCount];
+            for (int treeIt = 0; treeIt < numTrees; treeIt++) {
+                Instance modInstance = (Instance)instance.copy(); // Copy of the instance with the given attributes for
+                                                                  // the current tree
+                for (int removeIndex : removeAttributeIndexes[treeIt]) {
+                    modInstance.deleteAttributeAt(removeIndex);
+                }
+                System.out.println("REMOVES" + removeAttributeIndexes[treeIt]);
+                System.out.println(modInstance.numAttributes());
+                //votes[(int) ensemble[treeIt].classifyInstance(modInstance)]++;
+            }
+            double[] distribution = new double[classCount];
+            for (int classIt = 0; classIt < classCount; classIt++) {
+                distribution[classIt] = (double) votes[classIt] / numTrees;
+            }
+            return distribution;
+        }
     }
 
     public static void main(String[] args) {
@@ -121,10 +175,37 @@ public class TreeEnsemble extends AbstractClassifier {
         Instances[] chinatownSplit = WekaTools.splitDataRandom(chinatownData, 0.8);
 
         TreeEnsemble treeEnsemble = new TreeEnsemble();
+        treeEnsemble.setAverageDistributions(false);
         try {
-            treeEnsemble.buildClassifier(chinatownSplit[0]);
+            // Digits Data
+            treeEnsemble.buildClassifier(optidigitsSplit[0]);
+
+            System.out.println("optdigits data:");
+            System.out.println(treeEnsemble.classifyInstance(optidigitsSplit[1].firstInstance()));
+//            System.out.println("Accuracy: " + WekaTools.accuracy(treeEnsemble, optidigitsSplit[1]));
+//            System.out.println("Probabilities for first five test cases:");
+//            for (int i = 0; i < 5; i++) {
+//                System.out.println(Arrays.toString(treeEnsemble.distributionForInstance(optidigitsSplit[1].instance(i))));
+//            }
+
+            // Chinatown data
+//            treeEnsemble.buildClassifier(chinatownSplit[0]);
+//
+//            System.out.println(WekaTools.accuracy(treeEnsemble, chinatownSplit[1]));
+//            System.out.println("Probabilities for first five test cases:");
+//            for (int i = 0; i < 5; i++) {
+//                System.out.println(Arrays.toString(treeEnsemble.distributionForInstance(chinatownSplit[1].instance(i))));
+//            }
+//            System.out.println("Instance count: " + optdigitsData.numInstances());
+//            int classCount = optdigitsData.numClasses();
+//            System.out.println("Class count: " + classCount);
+//            for (Instance inst : optdigitsData) {
+//                if (classCount != inst.numClasses()) System.out.println("FAIL!");
+//            }
+            System.out.println("DONE");
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
+            //e.printStackTrace();
         }
     }
 }

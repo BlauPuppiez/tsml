@@ -2,8 +2,6 @@ package ml_6002b_coursework;
 
 import weka.classifiers.AbstractClassifier;
 import weka.core.*;
-import weka.filters.Filter;
-import weka.filters.unsupervised.attribute.NumericToNominal;
 
 import java.util.Arrays;
 
@@ -25,8 +23,6 @@ public class CourseworkTree extends AbstractClassifier {
      * Sets the option for attSplitMeasure in the classifier.
      */
     public void setOptions(String attSplitMeasure) throws Exception {
-        if (attSplitMeasure.equals("IG")) setAttSplitMeasure(new IGAttributeSplitMeasure());
-        else if (attSplitMeasure.equals(""));
         switch (attSplitMeasure) {
             case "IG":
                 setAttSplitMeasure(new IGAttributeSplitMeasure());
@@ -77,6 +73,7 @@ public class CourseworkTree extends AbstractClassifier {
 
         // attributes
         result.enable(Capabilities.Capability.NOMINAL_ATTRIBUTES);
+        result.enable(Capabilities.Capability.NUMERIC_ATTRIBUTES);
 
         // class
         result.enable(Capabilities.Capability.NOMINAL_CLASS);
@@ -141,6 +138,9 @@ public class CourseworkTree extends AbstractClassifier {
         /** Attribute used for splitting, if null the node is a leaf. */
         Attribute bestSplit = null;
 
+        /** Threshold used if the bestSplit attribute is numeric **/
+        double threshold;
+
         /** Best gain from the splitting measure if the node is not a leaf. */
         double bestGain = 0;
 
@@ -163,7 +163,7 @@ public class CourseworkTree extends AbstractClassifier {
          */
         void buildTree(Instances data, int depth) throws Exception {
             this.depth = depth;
-
+            // Need to split numeric attributes before assessing the quality
             // Loop through each attribute, finding the best one.
             for (int i = 0; i < data.numAttributes() - 1; i++) {
                 double gain = attSplitMeasure.computeAttributeQuality(data, data.attribute(i));
@@ -176,11 +176,23 @@ public class CourseworkTree extends AbstractClassifier {
 
             // If we found an attribute to split on, create child nodes.
             if (bestSplit != null) {
-                Instances[] split = attSplitMeasure.splitData(data, bestSplit);
+                Instances[] split;
+                if (bestSplit.isNumeric()) {
+                    // Calculate the threshold, so that it may be used in classification, data split etc.
+                    threshold = 0.0;
+                    for (Instance inst : data) {
+                        threshold += inst.value(bestSplit);
+                    }
+                    threshold /= data.size();
+
+                    split = attSplitMeasure.splitDataOnNumeric(data, bestSplit, threshold);
+                } else {
+                    split = attSplitMeasure.splitData(data, bestSplit);
+                }
                 children = new TreeNode[split.length];
 
                 // Create a child for each value in the selected attribute, and determine whether it is a leaf or not.
-                for (int i = 0; i < children.length; i++){
+                for (int i = 0; i < children.length; i++) {
                     children[i] = new TreeNode();
 
                     boolean leaf = split[i].numDistinctValues(data.classIndex()) == 1 || depth + 1 == maxDepth;
@@ -222,7 +234,16 @@ public class CourseworkTree extends AbstractClassifier {
             if (bestSplit == null) {
                 return leafDistribution;
             } else {
-                return children[(int) inst.value(bestSplit)].distributionForInstance(inst);
+                // Check for numeric attribute, if it is use the threshold on the numeric value.
+                if (bestSplit.isNumeric()) {
+                    if (inst.value(bestSplit) < threshold) {
+                        return children[0].distributionForInstance(inst);
+                    } else {
+                        return children[1].distributionForInstance(inst);
+                    }
+                } else {
+                    return children[(int) inst.value(bestSplit)].distributionForInstance(inst);
+                }
             }
         }
 
@@ -238,11 +259,11 @@ public class CourseworkTree extends AbstractClassifier {
             }
 
             double sum = 0;
-            for (double d : distribution){
+            for (double d : distribution) {
                 sum += d;
             }
 
-            if (sum != 0){
+            if (sum != 0) {
                 for (int i = 0; i < distribution.length; i++) {
                     distribution[i] = distribution[i] / sum;
                 }
@@ -273,7 +294,55 @@ public class CourseworkTree extends AbstractClassifier {
      *
      * @param args the options for the classifier main
      */
-    public static void main(String[] args) {
-        System.out.println("Not Implemented.");
+    public static void main(String[] args) throws Exception {
+        Instances optdigitsData = WekaTools.loadLocalClassificationData("optdigits.arff");
+        Instances chinatownData = WekaTools.loadLocalClassificationData("Chinatown.arff");
+
+        // Random split 0.8 : 0.2 (training : test) split
+        assert optdigitsData != null;
+        assert chinatownData != null;
+        Instances[] optidigitsSplit = WekaTools.splitDataRandom(optdigitsData, 0.8);
+        Instances[] chinatownSplit = WekaTools.splitDataRandom(chinatownData, 0.8);
+
+        CourseworkTree courseworkTreeIG = new CourseworkTree();
+        courseworkTreeIG.setOptions("IG");
+        courseworkTreeIG.buildClassifier(optidigitsSplit[0]);
+        double igAcc = WekaTools.accuracy(courseworkTreeIG, optidigitsSplit[1]);
+        System.out.println("DT using measure Information Gain on optdigits problem has test accuracy = " + igAcc);
+
+        CourseworkTree courseworkTreeIGR = new CourseworkTree();
+        courseworkTreeIGR.setOptions("IGR");
+        courseworkTreeIGR.buildClassifier(optidigitsSplit[0]);
+        double igrAcc = WekaTools.accuracy(courseworkTreeIGR, optidigitsSplit[1]);
+        System.out.println("DT using measure Information Gain Ratio on optdigits problem has test accuracy = " + igrAcc);
+
+        CourseworkTree courseworkTreeChi = new CourseworkTree();
+        courseworkTreeChi.setOptions("chi");
+        courseworkTreeChi.buildClassifier(optidigitsSplit[0]);
+        double chiAcc = WekaTools.accuracy(courseworkTreeChi, optidigitsSplit[1]);
+        System.out.println("DT using measure Chi-Squared on optdigits problem has test accuracy = " + chiAcc);
+
+        CourseworkTree courseworkTreeGini = new CourseworkTree();
+        courseworkTreeGini.setOptions("gini");
+        courseworkTreeGini.buildClassifier(optidigitsSplit[0]);
+        double giniAcc = WekaTools.accuracy(courseworkTreeGini, optidigitsSplit[1]);
+        System.out.println("DT using measure Gini on optdigits problem has test accuracy = " + giniAcc);
+
+        CourseworkTree chinatownCWTreeIG = new CourseworkTree();
+        chinatownCWTreeIG.buildClassifier(chinatownSplit[0]);
+        double chinatownIGAcc = WekaTools.accuracy(chinatownCWTreeIG, chinatownSplit[1]);
+        System.out.println("DT using measure Information Gain on Chinatown problem has test accuracy = " + chinatownIGAcc);
+
+        courseworkTreeIGR.buildClassifier(chinatownSplit[0]);
+        igrAcc = WekaTools.accuracy(courseworkTreeIGR, chinatownSplit[1]);
+        System.out.println("DT using measure Information Gain Ratio on Chinatown problem has test accuracy = " + igrAcc);
+
+        courseworkTreeChi.buildClassifier(chinatownSplit[0]);
+        chiAcc = WekaTools.accuracy(courseworkTreeChi, chinatownSplit[1]);
+        System.out.println("DT using measure Chi-Squared on Chinatown problem has test accuracy = " + chiAcc);
+
+        courseworkTreeGini.buildClassifier(chinatownSplit[0]);
+        giniAcc = WekaTools.accuracy(courseworkTreeGini, chinatownSplit[1]);
+        System.out.println("DT using measure Gini on Chinatown problem has test accuracy = " + giniAcc);
     }
 }

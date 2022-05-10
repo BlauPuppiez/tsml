@@ -2,6 +2,7 @@ package ml_6002b_coursework;
 
 import fileIO.OutFile;
 import weka.classifiers.Classifier;
+import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.filters.Filter;
@@ -45,6 +46,19 @@ public class WekaTools {
         }
         return null;
     }
+
+    /**
+     * Gets the average of the attribute for the given instances
+     */
+    public static double getAttributeAverage(Instances data, Attribute attribute) {
+        double average = 0.0;
+        for (Instance instance : data) {
+            average += instance.value(attribute);
+        }
+        average /= data.size();
+        return average;
+    }
+
     /**
      * Uses the classifier and actual (test) data to calculate accuracy of the classifier on the (test) data
      * @param c classifier

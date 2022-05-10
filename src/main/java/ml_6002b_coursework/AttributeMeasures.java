@@ -166,8 +166,8 @@ public class AttributeMeasures {
      */
     public static void main(String[] args) {
         /*
-                         Islay Speyside
-            Peaty: True    4      0
+            Peaty:        Islay Speyside
+                   True    4      0
                    False   1      5
         */
         int[][] peatyContingencyTable = new int[][]{{4, 0}, {1, 5}};

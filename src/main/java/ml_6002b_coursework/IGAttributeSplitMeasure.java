@@ -23,18 +23,36 @@ public class IGAttributeSplitMeasure extends AttributeSplitMeasure {
      */
     @Override
     public double computeAttributeQuality(Instances data, Attribute att) throws Exception {
-        int classCount = data.numClasses();
-        int attValues = att.numValues();
+        if (att.isNumeric()) {
+            Instances[] numericSplit = splitDataOnNumeric(data, att);
 
-        int[][] contingencyTable = new int[attValues][classCount];
+            int classCount = data.numClasses();
 
-        for (Instance instance : data) {
-            int attValue = (int)instance.value(att);
-            int classValue = (int)instance.classValue();
-            contingencyTable[attValue][classValue]++;
+            int[][] contingencyTable = new int[2][classCount];
+            // Split on numeric attribute produces a binary split (from threshold)
+
+            for (Instance instance : numericSplit[0]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[0][classValue]++;
+            }
+            for (Instance instance : numericSplit[1]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[1][classValue]++;
+            }
+            return useGain ? AttributeMeasures.measureInformationGain(contingencyTable) : AttributeMeasures.measureInformationGainRatio(contingencyTable);
+        } else {
+            int classCount = data.numClasses();
+            int attValues = att.numValues();
+
+            int[][] contingencyTable = new int[attValues][classCount];
+
+            for (Instance instance : data) {
+                int attValue = (int) instance.value(att);
+                int classValue = (int) instance.classValue();
+                contingencyTable[attValue][classValue]++;
+            }
+            return useGain ? AttributeMeasures.measureInformationGain(contingencyTable) : AttributeMeasures.measureInformationGainRatio(contingencyTable);
         }
-
-        return useGain ? AttributeMeasures.measureInformationGain(contingencyTable) : AttributeMeasures.measureInformationGainRatio(contingencyTable);
     }
 
     /**
@@ -50,31 +68,24 @@ public class IGAttributeSplitMeasure extends AttributeSplitMeasure {
      * @param args the options for the split measure main
      */
     public static void main(String[] args) {
-        // Load in the whisky data
-        Instances instances = null;
         try {
-            FileReader reader = new FileReader("C:\\Users\\siuhu\\OneDrive\\Uni\\Year 3\\Machine Learning\\Coursework\\whisky.arff");
-            instances = new Instances(reader);
-            instances.setClassIndex(instances.numAttributes()-1);
-        } catch (Exception e) {
-            System.out.println("Error!");
-        }
+            // Load in the whisky data (full path for local path, stored in test_data folder)
+//            FileReader reader = new FileReader("C:\\Users\\siuhu\\OneDrive\\Uni\\Year 3\\Machine Learning\\Coursework\\whisky.arff");
+//            Instances instances = new Instances(reader);
+//            instances.setClassIndex(instances.numAttributes()-1);
+            // Or using local path, comment as needed
+            Instances instances = WekaTools.loadLocalClassificationData("whisky.arff");
 
-        assert instances != null;
-
-        Attribute peatyAtt = instances.attribute(0);
-        Attribute woodyAtt = instances.attribute(1);
-        Attribute sweetAtt = instances.attribute(2);
-
-        // Debug lines; should print in the same order as here
+            Attribute peatyAtt = instances.attribute(0);
+            Attribute woodyAtt = instances.attribute(1);
+            Attribute sweetAtt = instances.attribute(2);
+            // Debug lines; should print in the same order as here
 //            System.out.println(peatyAtt);
 //            System.out.println(woodyAtt);
 //            System.out.println(sweetAtt);
 
+            IGAttributeSplitMeasure igAttributeSplitMeasure = new IGAttributeSplitMeasure();
 
-        IGAttributeSplitMeasure igAttributeSplitMeasure = new IGAttributeSplitMeasure();
-
-        try {
             double peatyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, peatyAtt);
             double woodyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, woodyAtt);
             double sweetMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, sweetAtt);
@@ -83,7 +94,7 @@ public class IGAttributeSplitMeasure extends AttributeSplitMeasure {
             System.out.println("measure Information Gain for attribute Woody splitting diagnosis = " + woodyMeasure);
             System.out.println("measure Information Gain for attribute Sweet splitting diagnosis = " + sweetMeasure);
 
-            // And also using information gain ratio
+            // And also using Information Gain Ratio
             igAttributeSplitMeasure.setUseGain(false);
             peatyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, peatyAtt);
             woodyMeasure = igAttributeSplitMeasure.computeAttributeQuality(instances, woodyAtt);
@@ -92,8 +103,8 @@ public class IGAttributeSplitMeasure extends AttributeSplitMeasure {
             System.out.println("measure Information Gain Ratio for attribute Peaty splitting diagnosis = " + peatyMeasure);
             System.out.println("measure Information Gain Ratio for attribute Woody splitting diagnosis = " + woodyMeasure);
             System.out.println("measure Information Gain Ratio for attribute Sweet splitting diagnosis = " + sweetMeasure);
-        } catch (Exception ignored) {
-
+        } catch (Exception e) {
+            System.out.println("Error!");
         }
     }
 }
