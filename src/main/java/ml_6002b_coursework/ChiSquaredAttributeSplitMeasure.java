@@ -5,49 +5,22 @@ import weka.core.Instance;
 import weka.core.Instances;
 
 import java.io.FileReader;
+
 public class ChiSquaredAttributeSplitMeasure extends AttributeSplitMeasure {
 
     /**
      * Computes the quality on splitting on the given attribute on the given data using the chi squared statistic.
-     * @param data data to assess split attribute.
-     * @param att attribute to split on.
-     * @return Double value of the measurement of quality for the given data on splitting with the given attribute using Information gain
-     * (ratio).
+     * @param data data to assess split attribute
+     * @param att attribute to split on
+     * @return Double value of the measurement of quality for the given data on splitting with the given attribute using
+     * Information gain (ratio)
      * @throws Exception
      */
     @Override
     public double computeAttributeQuality(Instances data, Attribute att) throws Exception {
-        if (att.isNumeric()) {
-            Instances[] numericSplit = splitDataOnNumeric(data, att);
+        int[][] contingencyTable = getContingencyTable(data, att);
 
-            int classCount = data.numClasses();
-
-            int[][] contingencyTable = new int[2][classCount];
-            // Split on numeric attribute produces a binary split (from threshold)
-
-            for (Instance instance : numericSplit[0]) {
-                int classValue = (int)instance.classValue();
-                contingencyTable[0][classValue]++;
-            }
-            for (Instance instance : numericSplit[1]) {
-                int classValue = (int)instance.classValue();
-                contingencyTable[1][classValue]++;
-            }
-            return AttributeMeasures.measureChiSquared(contingencyTable);
-        } else {
-            int classCount = data.numClasses();
-            int attValues = att.numValues();
-
-            int[][] contingencyTable = new int[attValues][classCount];
-
-            for (Instance instance : data) {
-                int attValue = (int) instance.value(att);
-                int classValue = (int) instance.classValue();
-                contingencyTable[attValue][classValue]++;
-            }
-
-            return AttributeMeasures.measureChiSquared(contingencyTable);
-        }
+        return AttributeMeasures.measureChiSquared(contingencyTable);
     }
 
     /**

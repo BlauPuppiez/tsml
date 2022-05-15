@@ -2,6 +2,7 @@ package ml_6002b_coursework;
 
 import weka.classifiers.AbstractClassifier;
 import weka.core.Attribute;
+import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.filters.Filter;
@@ -27,6 +28,9 @@ public class TreeEnsemble extends AbstractClassifier {
     /** Use average of distributions when classifying a new instance, default uses majority voting (false) */
     private boolean averageDistributions = false;
 
+    /** Random seed value for reproducibility **/
+    private long seed = 0;
+
     /**
      * Set the number of trees, must be a minimum of at least 1.
      * @param numTrees number of trees
@@ -48,6 +52,14 @@ public class TreeEnsemble extends AbstractClassifier {
         }
     }
 
+    /**
+     * Set the seed for random attribute selection.
+     * @param seed long value for the random seed
+     */
+    public void setSeed(long seed) {
+        this.seed = seed;
+    }
+
     public void setAverageDistributions(boolean averageDistributions) {
         this.averageDistributions = averageDistributions;
     }
@@ -67,6 +79,7 @@ public class TreeEnsemble extends AbstractClassifier {
         selectedAttributeIndexes = (ArrayList<Integer>[]) new ArrayList[numTrees];
         removeAttributeIndexes = (ArrayList<Integer>[]) new ArrayList[numTrees];
         Random random = new Random();
+        random.setSeed(seed);
         int randInt = 0;
         // Assign the attributes for each classifier in the ensemble
         for (int treeIt = 0; treeIt < numTrees; treeIt++) {
@@ -92,7 +105,9 @@ public class TreeEnsemble extends AbstractClassifier {
                     removeAttributeIndexes[treeIt].add(attIt);
                 }
             }
-            removeString = removeString.substring(0, removeString.length()-1); // Remove extra comma "," character
+            if (!removeString.isEmpty()) {
+                removeString = removeString.substring(0, removeString.length() - 1); // Remove extra comma "," character
+            }
             String[] options = new String[]{"-R", removeString};
             removeFilter.setOptions(options);
             removeFilter.setInputFormat(data);
@@ -128,14 +143,16 @@ public class TreeEnsemble extends AbstractClassifier {
         if (averageDistributions) {
             double[] averageDistribution = new double[classCount];
             for (int treeIt = 0; treeIt < numTrees; treeIt++) {
-//                int[] votes = new int[classCount];
-//                for (CourseworkTree tree : ensemble) {
-//                    votes[(int) tree.classifyInstance(instance)]++;
-//                }
-//                for (int classIt = 0; classIt < classCount; classIt++) {
-//                    averageDistribution[classIt] += (double) votes[classIt] / numTrees;
-//                }
-                double[] treeDistribution = ensemble[treeIt].distributionForInstance(instance);
+                // Copy of the instance with the given attributes for the current tree
+                DenseInstance modInstance = new DenseInstance(instance);
+                // Apply an offset, as removing an attribute will shorten it
+                int offset = 0;
+                for (int removeIndex : removeAttributeIndexes[treeIt]) {
+                    modInstance.deleteAttributeAt(removeIndex - offset);
+                    offset++;
+                }
+
+                double[] treeDistribution = ensemble[treeIt].distributionForInstance(modInstance);
                 for (int classIt = 0; classIt < classCount; classIt++) {
                     averageDistribution[classIt] += treeDistribution[classIt];
                 }
@@ -143,19 +160,23 @@ public class TreeEnsemble extends AbstractClassifier {
             for (int classIt = 0; classIt < classCount; classIt++) {
                 averageDistribution[classIt] /= numTrees;
             }
+//            System.out.println(Arrays.toString(averageDistribution));
             return averageDistribution;
         } else {
             int[] votes = new int[classCount];
+
             for (int treeIt = 0; treeIt < numTrees; treeIt++) {
-                Instance modInstance = (Instance)instance.copy(); // Copy of the instance with the given attributes for
-                                                                  // the current tree
+                // Copy of the instance with the given attributes for the current tree
+                DenseInstance modInstance = new DenseInstance(instance);
+                // Apply an offset, as removing an attribute will shorten it
+                int offset = 0;
                 for (int removeIndex : removeAttributeIndexes[treeIt]) {
-                    modInstance.deleteAttributeAt(removeIndex);
+                    modInstance.deleteAttributeAt(removeIndex - offset);
+                    offset++;
                 }
-                System.out.println("REMOVES" + removeAttributeIndexes[treeIt]);
-                System.out.println(modInstance.numAttributes());
-                //votes[(int) ensemble[treeIt].classifyInstance(modInstance)]++;
+                votes[(int) ensemble[treeIt].classifyInstance(modInstance)]++;
             }
+
             double[] distribution = new double[classCount];
             for (int classIt = 0; classIt < classCount; classIt++) {
                 distribution[classIt] = (double) votes[classIt] / numTrees;
@@ -181,31 +202,23 @@ public class TreeEnsemble extends AbstractClassifier {
             treeEnsemble.buildClassifier(optidigitsSplit[0]);
 
             System.out.println("optdigits data:");
-            System.out.println(treeEnsemble.classifyInstance(optidigitsSplit[1].firstInstance()));
-//            System.out.println("Accuracy: " + WekaTools.accuracy(treeEnsemble, optidigitsSplit[1]));
-//            System.out.println("Probabilities for first five test cases:");
-//            for (int i = 0; i < 5; i++) {
-//                System.out.println(Arrays.toString(treeEnsemble.distributionForInstance(optidigitsSplit[1].instance(i))));
-//            }
+            System.out.println("Accuracy: " + WekaTools.accuracy(treeEnsemble, optidigitsSplit[1]));
+            System.out.println("Probabilities for first five test cases:");
+            for (int i = 0; i < 5; i++) {
+                System.out.println(Arrays.toString(treeEnsemble.distributionForInstance(optidigitsSplit[1].instance(i))));
+            }
 
             // Chinatown data
-//            treeEnsemble.buildClassifier(chinatownSplit[0]);
-//
-//            System.out.println(WekaTools.accuracy(treeEnsemble, chinatownSplit[1]));
-//            System.out.println("Probabilities for first five test cases:");
-//            for (int i = 0; i < 5; i++) {
-//                System.out.println(Arrays.toString(treeEnsemble.distributionForInstance(chinatownSplit[1].instance(i))));
-//            }
-//            System.out.println("Instance count: " + optdigitsData.numInstances());
-//            int classCount = optdigitsData.numClasses();
-//            System.out.println("Class count: " + classCount);
-//            for (Instance inst : optdigitsData) {
-//                if (classCount != inst.numClasses()) System.out.println("FAIL!");
-//            }
-            System.out.println("DONE");
+            treeEnsemble.buildClassifier(chinatownSplit[0]);
+
+            System.out.println("Chinatown data:");
+            System.out.println("Accuracy:" + WekaTools.accuracy(treeEnsemble, chinatownSplit[1]));
+            System.out.println("Probabilities for first five test cases:");
+            for (int i = 0; i < 5; i++) {
+                System.out.println(Arrays.toString(treeEnsemble.distributionForInstance(chinatownSplit[1].instance(i))));
+            }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            //e.printStackTrace();
+            e.printStackTrace();
         }
     }
 }

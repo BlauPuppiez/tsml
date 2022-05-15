@@ -14,6 +14,50 @@ public abstract class AttributeSplitMeasure {
     public abstract double computeAttributeQuality(Instances data, Attribute att) throws Exception;
 
     /**
+     * Generate the contingency table for the given data and split on an attribute.
+     * If the attribute is numeric it will perform a binary split on the mean value of the attribute (on the given
+     * data).
+     * @param data to calculate table on
+     * @param att to split the data on
+     * @return int array of the generated contingency table
+     */
+    public int[][] getContingencyTable(Instances data, Attribute att) {
+        if (att.isNumeric()) {
+            // Split on numeric attribute produces a binary split (from threshold, calculated as the mean of the
+            // selected attribute)
+            Instances[] numericSplit = splitDataOnNumeric(data, att);
+
+            int classCount = data.numClasses();
+
+            int[][] contingencyTable = new int[2][classCount];
+
+            for (Instance instance : numericSplit[0]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[0][classValue]++;
+            }
+            for (Instance instance : numericSplit[1]) {
+                int classValue = (int)instance.classValue();
+                contingencyTable[1][classValue]++;
+            }
+
+            return contingencyTable;
+        } else {
+            int classCount = data.numClasses();
+            int attValues = att.numValues();
+
+            int[][] contingencyTable = new int[attValues][classCount];
+
+            for (Instance instance : data) {
+                int attValue = (int) instance.value(att);
+                int classValue = (int) instance.classValue();
+                contingencyTable[attValue][classValue]++;
+            }
+
+            return contingencyTable;
+        }
+    }
+
+    /**
      * Splits a dataset according to the values of a nominal attribute.
      *
      * @param data the data which is to be split

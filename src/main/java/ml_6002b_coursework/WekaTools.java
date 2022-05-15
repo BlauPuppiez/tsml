@@ -9,6 +9,7 @@ import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.NumericToNominal;
 
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Random;
@@ -226,6 +227,86 @@ public class WekaTools {
             confusionMatrix[actual[valIt]][predicted[valIt]]++;
         }
         return confusionMatrix;
+    }
+
+    /**
+     * Each int array in the ArrayList is the predicted values for the given class index (in the ArrayList).
+     * @param classifier to test
+     * @param test test data
+     * @return ArrayList containing the confusion matrix values
+     */
+    public static ArrayList<int[]> confusionMatrix(Classifier classifier, Instances test) {
+        int numClasses = test.numClasses();
+
+        // Initialise confusion matrix
+        ArrayList<int[]> confusionMatrix = new ArrayList<>();
+        for (int classIt = 0; classIt < numClasses; classIt++) {
+            confusionMatrix.add(new int[numClasses]);
+        }
+
+        // Count all predicted values and add it to the confusion matrix
+        try {
+            for (Instance instance : test) {
+                int actualClass = (int)instance.classValue();
+                int predictedClass = (int)classifier.classifyInstance(instance);
+
+                confusionMatrix.get(actualClass)[predictedClass]++;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return confusionMatrix;
+    }
+
+    /**
+     * Get the accuracy from the confusion matrix given by the function in WekaTools.
+     * @param confusionMatrix to get accuracy value
+     * @return accuracy value
+     */
+    public static double accuracy(ArrayList<int[]> confusionMatrix) {
+        int correctCount = 0;
+        int total = 0;
+        for (int classIt = 0; classIt < confusionMatrix.size(); classIt++) {
+            correctCount += confusionMatrix.get(classIt)[classIt];
+            for (int predIt = 0; predIt < confusionMatrix.size(); predIt++) {
+                total += confusionMatrix.get(classIt)[predIt];
+            }
+        }
+        return (double)correctCount/total;
+    }
+
+    /**
+     * Get the accuracy from the confusion matrix given by the function in WekaTools.
+     * @param confusionMatrix to get accuracy value
+     * @param total total number of instances
+     * @return accuracy value
+     */
+    public static double accuracy(ArrayList<int[]> confusionMatrix, int total) {
+        int correctCount = 0;
+        for (int classIt = 0; classIt < confusionMatrix.size(); classIt++) {
+            correctCount += confusionMatrix.get(classIt)[classIt];
+        }
+        return (double)correctCount/total;
+    }
+
+    /**
+     * Get the balanced accuracy from the given confusion matrix.
+     * @param confusionMatrix to get balanced accuracy value
+     * @return balanced accuracy value
+     */
+    public static double balancedAccuracy(ArrayList<int[]> confusionMatrix) {
+        double balancedAcc = 0;
+        for (int classIt = 0; classIt < confusionMatrix.size(); classIt++) {
+            // Calculate the total number of classifications for this (actual) class
+            int currClassCount = 0;
+            for (int predIt = 0; predIt < confusionMatrix.size(); predIt++) {
+                currClassCount += confusionMatrix.get(classIt)[predIt];
+            }
+            // And then the accuracy for this class (inc. test for: division by 0)
+            if (currClassCount != 0) balancedAcc += (double)confusionMatrix.get(classIt)[classIt] / currClassCount;
+        }
+        return balancedAcc/confusionMatrix.size();
     }
 
     public static int[] classifyInstances(Classifier c, Instances test) {
