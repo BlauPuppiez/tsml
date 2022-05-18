@@ -14,6 +14,10 @@ import java.util.Random;
 
 public class TreeEnsemble extends AbstractClassifier {
     private CourseworkTree[] ensemble;
+
+    /** Attribute split measure */
+    AttributeSplitMeasure attributeSplitMeasure = new IGAttributeSplitMeasure();
+
     /** Selected attributes for each classifier in the ensemble */
     private Attribute[][] selectedAttributes;
     private ArrayList<Integer>[] selectedAttributeIndexes;
@@ -64,6 +68,27 @@ public class TreeEnsemble extends AbstractClassifier {
         this.averageDistributions = averageDistributions;
     }
 
+    public void setAttributeSplitMeasure(String attributeSplitMeasure) throws Exception {
+        switch (attributeSplitMeasure.toLowerCase()) {
+            case "ig":
+                this.attributeSplitMeasure = new IGAttributeSplitMeasure();
+                break;
+            case "igr":
+                IGAttributeSplitMeasure igAttributeSplitMeasure = new IGAttributeSplitMeasure();
+                igAttributeSplitMeasure.setUseGain(false);
+                this.attributeSplitMeasure = igAttributeSplitMeasure;
+                break;
+            case "chi":
+                this.attributeSplitMeasure = new ChiSquaredAttributeSplitMeasure();
+                break;
+            case "gini":
+                this.attributeSplitMeasure = new GiniAttributeSplitMeasure();
+                break;
+            default:
+                throw new Exception();
+        }
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public void buildClassifier(Instances data) throws Exception {
@@ -71,6 +96,7 @@ public class TreeEnsemble extends AbstractClassifier {
         ensemble = new CourseworkTree[numTrees];
         for (int i = 0; i < numTrees; i++) {
             ensemble[i] = new CourseworkTree();
+            ensemble[i].setAttSplitMeasure(attributeSplitMeasure);
         }
 
         // Attribute selection (exclude the class attribute)

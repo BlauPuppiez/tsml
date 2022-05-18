@@ -309,6 +309,25 @@ public class WekaTools {
         return balancedAcc/confusionMatrix.size();
     }
 
+    public static double nll(Classifier c, Instances test) {
+        double nll = 0;
+        try {
+            for (Instance instance : test) {
+                int actClass = (int) instance.classValue();
+                double[] dist = c.distributionForInstance(instance);
+                double classDist = dist[actClass];
+                if (classDist == 0.0) {
+                    nll -= 10;
+                } else {
+                    nll += Math.log(dist[actClass]);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return -nll;
+    }
+
     public static int[] classifyInstances(Classifier c, Instances test) {
         int[] predValues = new int[test.numInstances()];
         int instanceIt = 0;

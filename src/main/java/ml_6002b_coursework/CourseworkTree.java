@@ -23,11 +23,11 @@ public class CourseworkTree extends AbstractClassifier {
      * Sets the option for attSplitMeasure in the classifier.
      */
     public void setOptions(String attSplitMeasure) throws Exception {
-        switch (attSplitMeasure) {
-            case "IG":
+        switch (attSplitMeasure.toLowerCase()) {
+            case "ig":
                 setAttSplitMeasure(new IGAttributeSplitMeasure());
                 break;
-            case "IGR":
+            case "igr":
                 IGAttributeSplitMeasure igAttributeSplitMeasure = new IGAttributeSplitMeasure();
                 igAttributeSplitMeasure.setUseGain(false);
                 setAttSplitMeasure(igAttributeSplitMeasure);
